@@ -3,7 +3,7 @@
 
 #define USER_MAX_SIZE 20
 #define HASH_MAX_SIZE 16 //MD5 = 8, SHA1 = 10, NTLM = 16
-#define HASHTXT_MAX_SIZE 32
+#define HASHTXT_MAX_SIZE 2 * HASH_MAX_SIZE
 
 #define xstr(s) str(s)
 #define str(s) #s	

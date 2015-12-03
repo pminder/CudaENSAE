@@ -2,6 +2,7 @@
 #include <stdlib.h>
 
 #include "cpuUtils.h"
+#include "libgpu.h"
 
 #define USAGE "USAGE: ./main hash.txt"
 
