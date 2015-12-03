@@ -3,9 +3,16 @@
 
 #include "cpuUtils.h"
 
+#define USAGE "USAGE: ./main hash.txt"
+
 int main(int argc, char const *argv[])
 {
-	//Check command line arguments TODO
+	//Check command line arguments
+	if (argc < 2)
+	{
+		fprintf(stderr, "%s\n", USAGE);
+		return EXIT_FAILURE;
+	}
 
 	//Load hashes in array of structs Hash
 	Hash * hashes = NULL;

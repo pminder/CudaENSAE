@@ -7,7 +7,8 @@
 
 #define xstr(s) str(s)
 #define str(s) #s	
-#define FMT_STRING "%" xstr(USER_MAX_SIZE) "[^:]:%" xstr(HASHTXT_MAX_SIZE) "s\n"
+#define FMT_STRING "%" xstr(USER_MAX_SIZE) \
+				"[^:]:%" xstr(HASHTXT_MAX_SIZE) "s\n"
 
 struct Hash
 {
