@@ -1,3 +1,2 @@
-paul:mypass
-romaric:hispass
-xdupre:anotherpass
+paul:6d797061
+romaric:68697370

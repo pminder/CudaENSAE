@@ -1,49 +1,68 @@
-#include <stdio.h>
-#include <stdlib.h>
+#include <stdlib.h>		
+#include <string.h>		
+#include <iostream>
+#include <string>
+#include <fstream>
+#include <sstream>
+#include <vector>
+
 #include "cpuUtils.h"
 
-//TODO: if the file does not end with '\n'
-int countLines(FILE * p)
+using namespace std;
+
+int getHashSize(const char * hashName)
 {
-	int c = 0, count = 0;
-	rewind(p);
-
-	do {
-		c = getc(p);
-		if (c == '\n') {
-			count++;
-		}
-	} while (c != EOF);
-
-	rewind(p);
-	return count; 
-}
-
-Hash * loadHashes(const char * fileName)
-{
-	//Open password file
-	FILE * passFile = NULL;
-	passFile = fopen(fileName, "r");
-	if (!passFile) {
-		fprintf(stderr, "Could not open file %s\n", fileName);
-		return NULL;
+	if(strcmp(hashName, "dummy") == 0) {
+		return 4;
 	}
 
-	//Get number of lines
-	int nLines = countLines(passFile);
-	//Allocate aray of structs Hash
-	Hash * hashes = (Hash *)calloc(nLines, sizeof(Hash));
-	if (!hashes) {
-		fprintf(stderr, "Memory Error\n");
-		fclose(passFile);
-		return NULL;
+	cerr << "Format not recognized (yet)" << endl;
+	return 0;
+
+}
+
+void  loadHashes(vector<Hash> & hashes, const char * fileName)
+{
+	//Open password file
+	ifstream passFile(fileName);
+	if (!passFile) {
+		cerr << "Could not open file " << fileName << endl;
+		return;
 	}
 
 	//Load password hashes
-	for (int i = 0; i < nLines; ++i) {
-		fscanf(passFile, FMT_STRING, hashes[i].name, hashes[i].txtHash);
+	string line;
+	while (getline(passFile, line)) {
+		size_t sep = line.find(":");
+		Hash hash;
+		hash.name = line.substr(0,sep);
+		hash.txt = line.substr(sep+1);
+		hashes.push_back(hash);
 	}
 
-	fclose(passFile);
-	return hashes;
+	passFile.close();
+
+}
+
+void hash2hex(const string & hash, char * hexHash)
+{
+	for (int i=0; 2*i < hash.size(); i++)
+	{
+		string b = hash.substr(2*i,2);
+		hexHash[i] = (char)strtoul(b.c_str(),NULL,16);
+	}
+}
+
+char * convertHashes(const vector <Hash> & hashes, const int hashSize)
+{
+	int N = hashes.size();
+	char * gpuHashes = NULL;
+	gpuHashes = (char*)calloc(N*hashSize,sizeof(char));
+	if (!gpuHashes) {
+		return NULL;
+	}
+	for (int i=0; i<N; i++) {
+		hash2hex(hashes[i].txt,gpuHashes+i*hashSize);
+	}
+	return gpuHashes;
 }
