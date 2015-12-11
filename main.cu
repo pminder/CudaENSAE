@@ -31,16 +31,22 @@ int main(int argc, char *argv[])
 		return EXIT_FAILURE;
 	}
 
-	cout << hashes[0].name << endl;
-	cout << hashes[0].txt << endl;
-	cout << hashes[1].name << endl;
-	cout << hashes[1].txt << endl;
+	// cout << hashes[0].name << endl;
+	// cout << hashes[0].txt << endl;
+	// cout << hashes[1].name << endl;
+	// cout << hashes[1].txt << endl;
 
+	// Convert hashes to char representation in CPU
 	char * gpuHashes = NULL;
 	gpuHashes = convertHashes(hashes, hashSize);
-	for (int i = 0; i < 8; ++i)
-	{
-		cout << *(gpuHashes+i) <<" ";
-	}
+	// for (int i = 0; i < 8; ++i)
+	// {
+	// 	cout << *(gpuHashes+i) <<" ";
+	// }
+
+
+	//Allocate GPU memory and launch GPU kernels
+	launchKernels(gpuHashes, hashes, arguments.format, hashSize);
+
 	return 0;
 }

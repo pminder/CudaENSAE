@@ -1,8 +1,15 @@
 #ifndef H_GPULIB
 #define H_GPULIB 
 
-__global__ void bruteForce(void * hashes, char ** crackedPass, const int size);
-__device__ void dummyHash(char * guess, void * res);
-__device__ bool hashncmp(void * hash1, void * hash2, const int size);
+char* launchKernels(char * hashes, std::vector<Hash> & hashes, const char * format, const int hashSize);
+
+__global__ void bfDummy(char * devResults, bool * founded, int nHashes);
+__device__ void dummyHashFunc(const char * guess, void * res);
+__device__ void incGuess(char * guess, int N);
+__device__ void gpuMemset(const char * guess, int n, const char c);
+__device__ bool gpuAll(const bool * founded, const int n);
+__device__ int  gpuStrncmp(const char * str1, const char * str2, const int n);
+__device__ void gpuStrcpy(char * dest, const char * src);
+__device__ int charAddition(char * c, int n);
 
 #endif // H_GPULIB
