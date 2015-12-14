@@ -8,6 +8,8 @@
 
 #include "cpuUtils.h"
 
+#define MAXPASSSIZE 50
+
 using namespace std;
 
 int getHashSize(const char * hashName)
@@ -65,4 +67,12 @@ char * convertHashes(const vector <Hash> & hashes, const int hashSize)
 		hash2hex(hashes[i].txt,gpuHashes+i*hashSize);
 	}
 	return gpuHashes;
+}
+
+void displayResults(const char * results, const int size)
+{
+	for (int i = 0; i < size; ++i)
+	{
+		printf("%s\n", results + MAXPASSSIZE*i);
+	}
 }

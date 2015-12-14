@@ -19,5 +19,6 @@ int getHashSize(const char * hashName);
 char * convertHashes(const std::vector<Hash> & hashes, const int hashSize);
 void hash2hex(const std::string & hash, char * hexHash);
 
+void displayResults(const char * results, const int size);
 
 #endif // H_CPUUTILS

@@ -1,11 +1,10 @@
-main: main.o cpuUtils.o
-	nvcc -o main main.o cpuUtils.o
+objects = main.o cpuUtils.o libgpu.o
 
-main.o: main.cu
-	nvcc -c main.cu
+all: $(objects)
+	nvcc $(objects) -o app
 
-cpuUtils.o: cpuUtils.cu
-	nvcc -c cpuUtils.cu
+%.o: %.cu
+	nvcc -x cu -I. -dc $< -o $@
 
-clear:
-	rm *.o main
+clean:
+	rm -f *.o app

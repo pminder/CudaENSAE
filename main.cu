@@ -8,6 +8,7 @@
 
 using namespace std;
 
+
 int main(int argc, char *argv[])
 {
 	
@@ -46,7 +47,14 @@ int main(int argc, char *argv[])
 
 
 	//Allocate GPU memory and launch GPU kernels
-	launchKernels(gpuHashes, hashes, arguments.format, hashSize);
+	char * results = launchKernels(gpuHashes, hashes, arguments.format, hashSize);
+	if (!results)
+	{
+		return EXIT_FAILURE;
+	}
+
+	displayResults(results, hashes.size());
+	free(results);
 
 	return 0;
 }

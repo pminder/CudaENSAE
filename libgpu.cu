@@ -3,42 +3,15 @@
 
 #define CSTMEMSIZE 100
 #define MAXPASSSIZE 50
-#define MAXCHAR 126
+#define MAXCHAR 127
 #define MINCHAR 33
+#define CHARRANGE (MAXCHAR - MINCHAR)
 
 __constant__ char devHashes[CSTMEMSIZE];
 
-char* launchKernels(char * gpuHashes, std::vector<Hash> & hashes, const char * format, const int hashSize)
-{
-	//Get number of hashes
-	nHashes = hashes.size();
-	//Allocate memory on CPU for storing results
-	char * results = NULL;
-	results = calloc(MAXPASSSIZE*nHashes, sizeof(char));
-	if (!results)
-	{
-		return NULL;
-	}
-
-	//Copy hashes on GPU constant memory
-	cudaMemcpyToSymbol(devHashes, gpuHashes, sizeof(char)*hashSize*nHashes);
-	//Allocate memory on GPU for storing results
-	char * devResults = NULL; 
-	cudaMalloc(&devResults, MAXPASSSIZE*nHashes * sizeof(char) ); 
-
-	// launch kernels according to format
-	if (strcmp(format, "dummy") == 0)
-	{
-		bfDummy<<<blocksPerGrid,threadsPerBlock>>>(devResults);
-	}
-
-
-	cudaMemcpy(results, devResults, MAXPASSSIZE*nHashes * sizeof(char),
-		cudaMemcpyDeviceToHost);
-
-	cudaFree(devResults);
-	return results;
-}
+// nombre de threads par bloc
+const int threadsPerBlock = 256;
+const int blocksPerGrid = 32;
 
 __global__ void bfDummy(char * devResults, bool * founded, int nHashes)
 {
@@ -55,9 +28,9 @@ __global__ void bfDummy(char * devResults, bool * founded, int nHashes)
 		dummyHashFunc(guess, guessHash);
 		for (int i = 0; i < nHashes; ++i)
 		{
-			if (gpuStrncmp(guessHash, devHashes[i], 4) == 0)
+			if (gpuStrncmp(guessHash, (char*)devHashes[i], 4) == 0)
 			{
-				gpuStrcpy(devResults[i], guess);
+				gpuStrcpy((char*)devResults[i], guess);
 				founded[i] = true;
 			}
 		}
@@ -65,11 +38,47 @@ __global__ void bfDummy(char * devResults, bool * founded, int nHashes)
 	}
 }
 
+char* launchKernels(char * gpuHashes, std::vector<Hash> & hashes, const char * format, const int hashSize)
+{
+	//Get number of hashes
+	int nHashes = hashes.size();
+	//Allocate memory on CPU for storing results
+	char * results = NULL;
+	results = (char *)calloc(MAXPASSSIZE*nHashes, sizeof(char));
+	if (!results)
+	{
+		return NULL;
+	}
+
+	//Copy hashes on GPU constant memory
+	cudaMemcpyToSymbol(devHashes, gpuHashes, sizeof(char)*hashSize*nHashes);
+	//Allocate memory on GPU for storing results
+	char * devResults = NULL; 
+	cudaMalloc(&devResults, MAXPASSSIZE*nHashes * sizeof(char) ); 
+	//prepare array of booleans for gpu
+	bool* founded;
+	cudaMalloc(&founded, nHashes*sizeof(bool));
+	cudaMemset ((void *)founded, (int)false, (size_t)nHashes);
+
+	// launch kernels according to format
+	if (strcmp(format, "dummy") == 0)
+	{
+		bfDummy<<<blocksPerGrid,threadsPerBlock>>>(devResults, founded, nHashes);
+	}
+
+
+	cudaMemcpy(results, devResults, MAXPASSSIZE*nHashes * sizeof(char),
+		cudaMemcpyDeviceToHost);
+
+	cudaFree(devResults);
+	return results;
+}
+
 __device__ void dummyHashFunc(const char * guess, void * res)
 {
 	for (int i = 0; i < 4; ++i)
 		{
-			res[i] = guess[i];
+			*((char*)res + i) = guess[i];
 		}	
 }
 
@@ -126,19 +135,9 @@ __device__ void incGuess(char * guess, int N)
 __device__ int charAddition(char * c, int n)
 {
 	char t;
-	if (*c == 0)
-	{
-		*c = MINCHAR;
-		n--;
-	}
+	
+	t = *c == 0 ? -1 : *c - MINCHAR;
+	*c = ((t + n) % CHARRANGE) + MINCHAR;
 
-	if (*c + n > MAXCHAR)
-	{
-		t = *c;
-		*c = MINCHAR;
-		return n - MAXCHAR + t;
-	}
-
-	*c = *c + n;
-	return 0;
+	return (t + n)/CHARRANGE;
 }
