@@ -1,5 +1,6 @@
 #include <vector>
 #include <iostream>
+#include <stdio.h>
 
 #include "cpuUtils.h"
 #include "libgpu.h"
@@ -12,7 +13,6 @@ using namespace std;
 int main(int argc, char *argv[])
 {
 	
-	
 	//Check command line arguments
 	struct arguments arguments;
 	//Set argument defaults 
@@ -22,6 +22,7 @@ int main(int argc, char *argv[])
   	//Check and get hash size
 	const int hashSize = getHashSize(arguments.format);
 	if (hashSize == 0) {
+		cout << "Empty file" << endl;
 		return EXIT_FAILURE;
 	}
 
@@ -53,7 +54,8 @@ int main(int argc, char *argv[])
 		return EXIT_FAILURE;
 	}
 
-	displayResults(results, hashes.size());
+	
+	// displayResults(results, hashes.size());
 	free(results);
 
 	return 0;
