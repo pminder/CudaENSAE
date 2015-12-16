@@ -25,20 +25,23 @@ __global__ void bfDummy(char * devResults, bool * founded, int nHashes)
 	gpuMemset(guess, MAXPASSSIZE, 0);
 	incGuess(guess, tid  + 1);
 
-	while (!gpuAll(founded, nHashes))
+	int times(0);
+
+	// while (!gpuAll(founded, nHashes))
+	while (times != 10000)
 	{
 		dummyHashFunc(guess, guessHash);
 		for (int i = 0; i < nHashes; ++i)
 		{
 			if (gpuStrncmp(guessHash, devHashes + i*4, 4) == 0)
 			{
-				printf("%s\n", guess);
-				// gpuStrncpy(devResults + i*MAXPASSSIZE, guess, MAXPASSSIZE);
-				// printf("%s\n", devResults + i*MAXPASSSIZE);
-				founded[i] = true;
+				// printf("%s\n", guess);
+				gpuStrncpy(devResults + i*MAXPASSSIZE, guess, MAXPASSSIZE);
+				// founded[i] = true;
 			}
 		}
 		incGuess(guess, gridDim.x * blockDim.x);
+		times++;
 	}
 }
 
@@ -123,7 +126,7 @@ __device__ void gpuStrncpy(char * dest, const char * src, const int n)
 	// printf("Entering function...\n");
 	for (int i = 0; i < n; ++i)
 	{
-		dest[i] = 'b';
+		dest[i] = src[i];
 	}
 
 	dest[n-1] = 0;

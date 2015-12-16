@@ -55,7 +55,7 @@ int main(int argc, char *argv[])
 	}
 
 	
-	// displayResults(results, hashes.size());
+	displayResults(results, hashes.size());
 	free(results);
 
 	return 0;
