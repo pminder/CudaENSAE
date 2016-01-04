@@ -1,3 +1,5 @@
-mettre hashes dans un tableau en mémoire constante
 optimiser fonction de comparaison
 améliorer conversion hashes
+ne pas continuer à cracker les mots de passe qui ont déjà été trouvés
+	(interrompre toutes les threads et recommencer avec mot de passe en moins)
+

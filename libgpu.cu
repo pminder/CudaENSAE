@@ -7,6 +7,7 @@
 #define MAXCHAR 127
 #define MINCHAR 33
 #define CHARRANGE (MAXCHAR - MINCHAR)
+#define ITPERSTEPS 10000
 
 __constant__ char devHashes[CSTMEMSIZE];
 
@@ -15,38 +16,42 @@ const int threadsPerBlock = 256;
 const int blocksPerGrid = 32;
 
 
-__global__ void bfDummy(char * devResults, bool * founded, int nHashes)
+__global__ void bfDummy(char * devResults, char * status, int nHashes)
 {
 	//Initialize guess string
 	char guess[MAXPASSSIZE];
+	//Initialize guess hash
 	char guessHash[4];
+	//Compute thread ID
 	int tid = threadIdx.x + blockIdx.x * blockDim.x;
+	//Fill in guess string according to previous launches
+	gpuStrncpy(guess, status + tid*MAXPASSSIZE, MAXPASSSIZE);
 
-	gpuMemset(guess, MAXPASSSIZE, 0);
-	incGuess(guess, tid  + 1);
-
-	int times(0);
-
-	// while (!gpuAll(founded, nHashes))
-	while (times != 10000)
+	//Only perform a certain number of guesses 
+	for (int iter = 0; iter < ITPERSTEPS; ++iter)
 	{
+		//Compute current guess hash
 		dummyHashFunc(guess, guessHash);
+		//For each password hash to crack
 		for (int i = 0; i < nHashes; ++i)
 		{
+			//If password founded
 			if (gpuStrncmp(guessHash, devHashes + i*4, 4) == 0)
-			{
-				// printf("%s\n", guess);
+			{	
+				//Store results in devResults
 				gpuStrncpy(devResults + i*MAXPASSSIZE, guess, MAXPASSSIZE);
-				// founded[i] = true;
 			}
 		}
+		//increment guess
 		incGuess(guess, gridDim.x * blockDim.x);
-		times++;
 	}
+
+	//Store last password guess
+	gpuStrncpy(status + tid*MAXPASSSIZE, guess, MAXPASSSIZE);
 }
 
 
-char* launchKernels(char * gpuHashes, std::vector<Hash> & hashes, const char * format, const int hashSize)
+char * launchKernels(char * gpuHashes, std::vector<Hash> & hashes, const char * format, const int hashSize)
 {
 	//Get number of hashes
 	int nHashes = hashes.size();
@@ -63,24 +68,70 @@ char* launchKernels(char * gpuHashes, std::vector<Hash> & hashes, const char * f
 	//Allocate memory on GPU for storing results
 	char * devResults = NULL; 
 	cudaMalloc((void**)&devResults, MAXPASSSIZE*nHashes*sizeof(char));
-	//prepare array of booleans for gpu
-	bool* founded;
-	cudaMalloc((void**)&founded, nHashes*sizeof(bool));
-	cudaMemset ((void *)founded, (int)false, (size_t)nHashes);
+	//Compute total number of threads
+	int nThreads = threadsPerBlock * blocksPerGrid;
+	//Allocate memory in GPU for storing status
+	char * devStatus = NULL;
+	cudaMalloc((void**)&devStatus, nThreads * MAXPASSSIZE * sizeof(char));
+	//Initialize guesses
+	initGuesses(devStatus, nThreads);
 
-	// launch kernels according to format
-	if (strcmp(format, "dummy") == 0)
+	while (!founded(results, nHashes))
 	{
-		bfDummy<<<threadsPerBlock,blocksPerGrid>>>(devResults, founded, nHashes);
+
+		// launch kernels according to format
+		if (strcmp(format, "dummy") == 0)
+		{
+			bfDummy<<<threadsPerBlock,blocksPerGrid>>>(devResults, devStatus, nHashes);
+		}
+
+
+		cudaMemcpy(results, devResults, MAXPASSSIZE*nHashes*sizeof(char),
+			cudaMemcpyDeviceToHost);
+
 	}
 
-
-	cudaMemcpy(results, devResults, MAXPASSSIZE*nHashes*sizeof(char),
-		cudaMemcpyDeviceToHost);
-
 	cudaFree(devResults);
-	cudaFree(founded);
+	cudaFree(devStatus);
+
 	return results;
+}
+
+bool founded(char * results, int nHashes)
+{
+	for (int i = 0; i < nHashes; ++i)
+	{
+		if (results[i*MAXPASSSIZE] == 0)
+		{
+			return false;
+		}
+	}
+
+	return true;
+}
+
+void initGuesses(char * devStatus, int nThreads)
+{
+	//Create equivalent char array on CPU
+	char * temp = (char*)calloc(nThreads * MAXPASSSIZE, sizeof(char));
+	if (temp == NULL)
+	{
+		fprintf(stderr, "Memory Error\n");
+		return;
+	}
+
+	//Fill in cpu array
+	for (int i = 0; i < nThreads; ++i)
+	{
+		cpuIncGuess(temp + i*MAXPASSSIZE, i);
+	}
+
+	//Copy on GPU
+	cudaMemcpy(devStatus, temp, nThreads * MAXPASSSIZE,
+		cudaMemcpyHostToDevice);
+
+	//Free temp array
+	free(temp);
 }
 
 __device__ void dummyHashFunc(const char * guess, char * hash)
@@ -91,24 +142,24 @@ __device__ void dummyHashFunc(const char * guess, char * hash)
 		}	
 }
 
-__device__ void gpuMemset(char * guess, const int n, const char c)
-{
-	for (int i = 0; i < n; ++i)
-	{
-		guess[i] = c;
-	}
-}
+// __device__ void gpuMemset(char * guess, const int n, const char c)
+// {
+// 	for (int i = 0; i < n; ++i)
+// 	{
+// 		guess[i] = c;
+// 	}
+// }
 
-__device__ bool gpuAll(const bool * founded, const int n)
-{
-	bool output(true);
-	for (int i = 0; i < n; ++i)
-	{
-		output = output & founded[i];
-	}
+// __device__ int gpuAll(const int * founded, const int n)
+// {
+// 	int output(1);
+// 	for (int i = 0; i < n; ++i)
+// 	{
+// 		output &= founded[i];
+// 	}
 
-	return output;
-}
+// 	return output;
+// }
 
 __device__ int  gpuStrncmp(const char * str1, const char * str2, const int n)
 {
@@ -146,6 +197,28 @@ __device__ void incGuess(char * guess, int N)
 }
 
 __device__ int charAddition(char * c, int n)
+{
+	char t;
+	
+	t = *c == 0 ? -1 : *c - MINCHAR;
+	*c = ((t + n) % CHARRANGE) + MINCHAR;
+
+	return (t + n)/CHARRANGE;
+}
+
+void cpuIncGuess(char * guess, int N)
+//potentiellement, il y a un risque de buffer overflow
+//mais cela ne devrait pas arriver avant plusieurs milliards années
+{
+	int i = 0;
+	while (N != 0)
+	{
+		N = cpuCharAddition(&guess[i], N);
+		i++;
+	}
+}
+
+int cpuCharAddition(char * c, int n)
 {
 	char t;
 	
