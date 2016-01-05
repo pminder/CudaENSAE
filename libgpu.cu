@@ -2,6 +2,8 @@
 #include <stdio.h>
 #include "libgpu.h"
 
+#include "md5.h"
+
 #define CSTMEMSIZE 100
 #define MAXPASSSIZE 50
 #define MAXCHAR 127
@@ -18,6 +20,7 @@ const int blocksPerGrid = 32;
 
 __global__ void bfDummy(char * devResults, char * status, int nHashes)
 {
+
 	//Initialize guess string
 	char guess[MAXPASSSIZE];
 	//Initialize guess hash
@@ -78,6 +81,7 @@ char * launchKernels(char * gpuHashes, std::vector<Hash> & hashes, const char * 
 
 	while (!founded(results, nHashes))
 	{
+		// printf("Iter\n");
 
 		// launch kernels according to format
 		if (strcmp(format, "dummy") == 0)
