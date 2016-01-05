@@ -60,6 +60,7 @@ void md5_format(char * output, const char * sum);
 void md5_format_ex(char * output, const char * buf, int bytes);
 // __device__ int  md5_get_err_number(void);
 // __device__ void md5_set_err_number(int n);
+__device__ void devFormat(const char * m);
  
 #endif
 
@@ -276,6 +277,18 @@ void md5_format_ex(char * output, const char * m, int bytes)
         sprintf(output, "%02x", (unsigned char)m[i]);
         output += 2;
     }
+}
+
+__device__ void devFormat(const char * m)
+{
+    int i;
+ 
+    for(i = 0; i < 16; i++)
+    {
+        printf("%02x", (unsigned char)m[i]);
+    }
+
+    printf("\n");
 }
  
 // __device__ int md5_get_err_number()

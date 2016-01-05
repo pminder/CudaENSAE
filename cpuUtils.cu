@@ -18,6 +18,10 @@ int getHashSize(const char * hashName)
 		return 4;
 	}
 
+	if(strcmp(hashName, "md5") == 0) {
+		return 16;
+	}
+
 	cerr << "Format not recognized (yet)" << endl;
 	return 0;
 

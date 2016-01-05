@@ -14,6 +14,7 @@ __device__ int gpuAll(const int * founded, const int n);
 __device__ int  gpuStrncmp(const char * str1, const char * str2, const int n);
 __device__ void gpuStrncpy(char * dest, const char * src, const int n);
 __device__ int charAddition(char * c, int n);
+__device__ int devStrlen(const char * s);
 void cpuIncGuess(char * guess, int N);
 int cpuCharAddition(char * c, int n);
 void initGuesses(char * devStatus, int nThreads);

@@ -9,7 +9,7 @@
 #define MAXCHAR 127
 #define MINCHAR 33
 #define CHARRANGE (MAXCHAR - MINCHAR)
-#define ITPERSTEPS 10000
+#define ITPERSTEPS 100
 
 __constant__ char devHashes[CSTMEMSIZE];
 
@@ -53,6 +53,40 @@ __global__ void bfDummy(char * devResults, char * status, int nHashes)
 	gpuStrncpy(status + tid*MAXPASSSIZE, guess, MAXPASSSIZE);
 }
 
+__global__ void bfMD5(char * devResults, char * status, int nHashes)
+{
+
+	//Initialize guess string
+	char guess[MAXPASSSIZE];
+	//Initialize guess hash
+	char guessHash[16];
+	//Compute thread ID
+	int tid = threadIdx.x + blockIdx.x * blockDim.x;
+	//Fill in guess string according to previous launches
+	gpuStrncpy(guess, status + tid*MAXPASSSIZE, MAXPASSSIZE);
+
+	//Only perform a certain number of guesses 
+	for (int iter = 0; iter < ITPERSTEPS; ++iter)
+	{
+		//Compute current guess hash
+		md5(guessHash, guess, devStrlen(guess));
+		//For each password hash to crack
+		for (int i = 0; i < nHashes; ++i)
+		{
+			//If password founded
+			if (gpuStrncmp(guessHash, devHashes + i*16, 16) == 0)
+			{	
+				//Store results in devResults
+				gpuStrncpy(devResults + i*MAXPASSSIZE, guess, MAXPASSSIZE);
+			}
+		}
+		//increment guess
+		incGuess(guess, gridDim.x * blockDim.x);
+	}
+
+	//Store last password guess
+	gpuStrncpy(status + tid*MAXPASSSIZE, guess, MAXPASSSIZE);
+}
 
 char * launchKernels(char * gpuHashes, std::vector<Hash> & hashes, const char * format, const int hashSize)
 {
@@ -71,6 +105,7 @@ char * launchKernels(char * gpuHashes, std::vector<Hash> & hashes, const char * 
 	//Allocate memory on GPU for storing results
 	char * devResults = NULL; 
 	cudaMalloc((void**)&devResults, MAXPASSSIZE*nHashes*sizeof(char));
+	cudaMemcpy(devResults, results, MAXPASSSIZE*nHashes*sizeof(char), cudaMemcpyHostToDevice);
 	//Compute total number of threads
 	int nThreads = threadsPerBlock * blocksPerGrid;
 	//Allocate memory in GPU for storing status
@@ -79,14 +114,21 @@ char * launchKernels(char * gpuHashes, std::vector<Hash> & hashes, const char * 
 	//Initialize guesses
 	initGuesses(devStatus, nThreads);
 
+	md5_init();
+	int nIters = 0;
+
 	while (!founded(results, nHashes))
 	{
-		// printf("Iter\n");
-
+		nIters++;
 		// launch kernels according to format
 		if (strcmp(format, "dummy") == 0)
 		{
 			bfDummy<<<threadsPerBlock,blocksPerGrid>>>(devResults, devStatus, nHashes);
+		}
+
+		if (strcmp(format, "md5") == 0)
+		{
+			bfMD5<<<threadsPerBlock,blocksPerGrid>>>(devResults, devStatus, nHashes);
 		}
 
 
@@ -94,6 +136,8 @@ char * launchKernels(char * gpuHashes, std::vector<Hash> & hashes, const char * 
 			cudaMemcpyDeviceToHost);
 
 	}
+
+	printf("Number of iterations: %d\n", nIters);
 
 	cudaFree(devResults);
 	cudaFree(devStatus);
@@ -136,6 +180,16 @@ void initGuesses(char * devStatus, int nThreads)
 
 	//Free temp array
 	free(temp);
+}
+
+__device__ int devStrlen(const char * s)
+{
+	int i = 0;
+	while (s[i] != '\x00') {
+		++i;
+	}
+
+	return i;
 }
 
 __device__ void dummyHashFunc(const char * guess, char * hash)
