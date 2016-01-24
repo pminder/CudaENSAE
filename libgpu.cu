@@ -10,7 +10,7 @@
 #define MAXCHAR 127
 #define MINCHAR 33
 #define CHARRANGE (MAXCHAR - MINCHAR)
-#define ITPERSTEPS 100
+#define ITPERSTEPS 500
 
 using namespace std;
 
