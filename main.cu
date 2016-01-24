@@ -79,7 +79,7 @@ int main(int argc, char *argv[])
         float elapsedTime(0);
         HANDLE_ERROR( cudaEventElapsedTime(&elapsedTime, start, stop) );
         
-        cout << "Performances: " << 1000000.0 / elapsedTime << " M hash/sec";
+        cout << "Performances: " << 1000000.0 / elapsedTime << " hash/ms";
         cout << endl;
         HANDLE_ERROR( cudaEventDestroy(start) );
         HANDLE_ERROR( cudaEventDestroy(stop) );
