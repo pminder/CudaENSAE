@@ -43,16 +43,16 @@ parse_opt (int key, char *arg, struct argp_state *state)
       break;
     case ARGP_KEY_ARG:
       if (state->arg_num >= 1)
-  {
-    argp_usage(state);
-  }
+          {
+            argp_usage(state);
+          }
       arguments->args[state->arg_num] = arg;
       break;
     case ARGP_KEY_END:
       if (state->arg_num < 1)
-  {
-    argp_usage (state);
-  }
+          {
+            argp_usage (state);
+          }
       break;
     default:
       return ARGP_ERR_UNKNOWN;

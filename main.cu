@@ -9,7 +9,6 @@
 
 using namespace std;
 
-
 int main(int argc, char *argv[])
 {
 	
@@ -22,7 +21,6 @@ int main(int argc, char *argv[])
   	//Check and get hash size
 	const int hashSize = getHashSize(arguments.format);
 	if (hashSize == 0) {
-		cout << "Empty file" << endl;
 		return EXIT_FAILURE;
 	}
 
@@ -33,29 +31,23 @@ int main(int argc, char *argv[])
 		return EXIT_FAILURE;
 	}
 
-	// cout << hashes[0].name << endl;
-	// cout << hashes[0].txt << endl;
-	// cout << hashes[1].name << endl;
-	// cout << hashes[1].txt << endl;
-
 	// Convert hashes to char representation in CPU
 	char * gpuHashes = NULL;
 	gpuHashes = convertHashes(hashes, hashSize);
-	// for (int i = 0; i < 8; ++i)
-	// {
-	// 	cout << *(gpuHashes+i) <<" ";
-	// }
-
-
+	
 	//Allocate GPU memory and launch GPU kernels
-	char * results = launchKernels(gpuHashes, hashes, arguments.format, hashSize);
+	char * results = launchKernels(gpuHashes, hashes.size(), arguments.format, hashSize);
 	if (!results)
 	{
 		return EXIT_FAILURE;
 	}
 
-	
-	displayResults(results, hashes.size());
+	//Display results
+    storeResults(results, hashes);
+	displayResults(hashes);
+
+    //And we are environmentally concerned coders :)
+    free(gpuHashes);
 	free(results);
 
 	return 0;

@@ -1,4 +1,5 @@
 #include <string.h>
+#include <iostream>
 #include <stdio.h>
 #include "libgpu.h"
 
@@ -10,6 +11,8 @@
 #define MINCHAR 33
 #define CHARRANGE (MAXCHAR - MINCHAR)
 #define ITPERSTEPS 100
+
+using namespace std;
 
 __constant__ char devHashes[CSTMEMSIZE];
 
@@ -88,38 +91,40 @@ __global__ void bfMD5(char * devResults, char * status, int nHashes)
 	gpuStrncpy(status + tid*MAXPASSSIZE, guess, MAXPASSSIZE);
 }
 
-char * launchKernels(char * gpuHashes, std::vector<Hash> & hashes, const char * format, const int hashSize)
+char * launchKernels(char * gpuHashes, int nHashes, const char * format, const int hashSize)
 {
-	//Get number of hashes
-	int nHashes = hashes.size();
 	//Allocate memory on CPU for storing results
 	char * results = NULL;
 	results = (char *)calloc(MAXPASSSIZE*nHashes, sizeof(char));
 	if (!results)
 	{
+        cerr << "Memory error" << endl;
 		return NULL;
 	}
 
 	//Copy hashes on GPU constant memory
-	cudaMemcpyToSymbol(devHashes, gpuHashes, sizeof(char)*hashSize*nHashes);
+	HANDLE_ERROR( cudaMemcpyToSymbol(devHashes, gpuHashes,
+                sizeof(char)*hashSize*nHashes) );
 	//Allocate memory on GPU for storing results
 	char * devResults = NULL; 
-	cudaMalloc((void**)&devResults, MAXPASSSIZE*nHashes*sizeof(char));
-	cudaMemcpy(devResults, results, MAXPASSSIZE*nHashes*sizeof(char), cudaMemcpyHostToDevice);
+	HANDLE_ERROR( cudaMalloc((void**)&devResults,
+                MAXPASSSIZE*nHashes*sizeof(char)) );
+	HANDLE_ERROR( cudaMemcpy(devResults, results,
+                MAXPASSSIZE*nHashes*sizeof(char), cudaMemcpyHostToDevice) );
 	//Compute total number of threads
 	int nThreads = threadsPerBlock * blocksPerGrid;
 	//Allocate memory in GPU for storing status
 	char * devStatus = NULL;
-	cudaMalloc((void**)&devStatus, nThreads * MAXPASSSIZE * sizeof(char));
-	//Initialize guesses
+	HANDLE_ERROR( cudaMalloc((void**)&devStatus, nThreads * MAXPASSSIZE *
+                sizeof(char)) );
+	//Initialize guesses on GPU
 	initGuesses(devStatus, nThreads);
-
+    //Initalize MD5 hasher
 	md5_init();
-	int nIters = 0;
 
+    //While all passwords are not founded
 	while (!founded(results, nHashes))
 	{
-		nIters++;
 		// launch kernels according to format
 		if (strcmp(format, "dummy") == 0)
 		{
@@ -131,16 +136,15 @@ char * launchKernels(char * gpuHashes, std::vector<Hash> & hashes, const char * 
 			bfMD5<<<threadsPerBlock,blocksPerGrid>>>(devResults, devStatus, nHashes);
 		}
 
-
-		cudaMemcpy(results, devResults, MAXPASSSIZE*nHashes*sizeof(char),
-			cudaMemcpyDeviceToHost);
+        //Copy results from GPU back to CPU
+		HANDLE_ERROR( cudaMemcpy(results, devResults,
+                    MAXPASSSIZE*nHashes*sizeof(char), cudaMemcpyDeviceToHost) );
 
 	}
 
-	printf("Number of iterations: %d\n", nIters);
-
-	cudaFree(devResults);
-	cudaFree(devStatus);
+    //Environmental concern...
+	HANDLE_ERROR( cudaFree(devResults) );
+	HANDLE_ERROR( cudaFree(devStatus) );
 
 	return results;
 }
@@ -175,8 +179,8 @@ void initGuesses(char * devStatus, int nThreads)
 	}
 
 	//Copy on GPU
-	cudaMemcpy(devStatus, temp, nThreads * MAXPASSSIZE,
-		cudaMemcpyHostToDevice);
+	HANDLE_ERROR( cudaMemcpy(devStatus, temp, nThreads * MAXPASSSIZE,
+                cudaMemcpyHostToDevice) );
 
 	//Free temp array
 	free(temp);
@@ -200,25 +204,6 @@ __device__ void dummyHashFunc(const char * guess, char * hash)
 		}	
 }
 
-// __device__ void gpuMemset(char * guess, const int n, const char c)
-// {
-// 	for (int i = 0; i < n; ++i)
-// 	{
-// 		guess[i] = c;
-// 	}
-// }
-
-// __device__ int gpuAll(const int * founded, const int n)
-// {
-// 	int output(1);
-// 	for (int i = 0; i < n; ++i)
-// 	{
-// 		output &= founded[i];
-// 	}
-
-// 	return output;
-// }
-
 __device__ int  gpuStrncmp(const char * str1, const char * str2, const int n)
 {
 	int nDiff(0);
@@ -232,7 +217,6 @@ __device__ int  gpuStrncmp(const char * str1, const char * str2, const int n)
 
 __device__ void gpuStrncpy(char * dest, const char * src, const int n)
 {
-	// printf("Entering function...\n");
 	for (int i = 0; i < n; ++i)
 	{
 		dest[i] = src[i];
