@@ -4,7 +4,6 @@
 #include <vector>
 #include "cpuUtils.h"
 
-
 //ERROR HANDLING (thanks to NVIDIA Cuda by Example)
 static void HandleError( cudaError_t err,
                          const char *file,
@@ -16,7 +15,6 @@ static void HandleError( cudaError_t err,
     }
 }
 #define HANDLE_ERROR( err ) (HandleError( err, __FILE__, __LINE__ ))
-
 
 
 //Launch kernels in order to brute force a series of hashes

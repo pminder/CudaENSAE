@@ -6,8 +6,9 @@
 /* This structure is used by main to communicate with parse_opt. */
 struct arguments
 {
-  char *args[1];            /* ARG1 = hash file */
-  char *format;            /* Argument for -f */
+  char *args[1];  /* ARG1 = hash file */
+  char *format;   /* Argument for -f */
+  char test;      /*Argument for -t*/
 };
 
 const char *argp_program_version =
@@ -24,6 +25,7 @@ static struct argp_option options[] =
 {
   {"format", 'f', "FORMAT", 0,
    "Parse hashes of a specific format"},
+  {"test", 't', 0, 0, "Test speed"},
   {0}
 };
 
@@ -41,15 +43,17 @@ parse_opt (int key, char *arg, struct argp_state *state)
     case 'f':
       arguments->format = arg;
       break;
+    case 't':
+      arguments->test = 1;
     case ARGP_KEY_ARG:
-      if (state->arg_num >= 1)
+      if ( (state->arg_num < 1) && (arguments->test != 1) )
           {
             argp_usage(state);
           }
       arguments->args[state->arg_num] = arg;
       break;
     case ARGP_KEY_END:
-      if (state->arg_num < 1)
+      if ( (state->arg_num < 1) && (arguments->test != 1) )
           {
             argp_usage (state);
           }
@@ -65,7 +69,7 @@ parse_opt (int key, char *arg, struct argp_state *state)
    A description of the non-option command-line arguments
      that we accept.
 */
-static char args_doc[] = "HASHFILE";
+static char args_doc[] = "[HASHFILE]";
 
 /*
   DOC.  Field 4 in ARGP.
