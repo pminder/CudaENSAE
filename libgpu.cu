@@ -18,7 +18,7 @@ __constant__ char devHashes[CSTMEMSIZE];
 
 // nombre de threads par bloc
 const int threadsPerBlock = 256;
-const int blocksPerGrid = 32;
+const int blocksPerGrid = 4;
 
 
 __global__ void bfDummy(char * devResults, char * status, int nHashes)
