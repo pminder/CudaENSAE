@@ -25,7 +25,7 @@ static void HandleError( cudaError_t err,
 //  - hashSize: length of hashing algorithm signature
 //Returns: pointer to array of char contaning results (each result is
 //MAXPASSSIZE long)
-char * launchKernels(char * gpuHashes, int nHashes, const char * format, const int hashSize);
+char * launchKernels(char * gpuHashes, int nHashes, const char * format, const int hashSize, char test);
 
 //Kernels for each supported format. These kernels only try a certain number of
 //passwords each time they are called. Otherwise, we had problems like screen

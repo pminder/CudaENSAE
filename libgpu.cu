@@ -3,33 +3,37 @@
 #include <stdio.h>
 #include "libgpu.h"
 
-#include "md5.h"
-
 #define CSTMEMSIZE 100
-#define MAXPASSSIZE 50
+#define MAXPASSSIZE 9
 #define MAXCHAR 127
 #define MINCHAR 33
 #define CHARRANGE (MAXCHAR - MINCHAR)
 #define ITPERSTEPS 500
 
+// nombre de threads par bloc
+#define threadsPerBlock 256
+#define blocksPerGrid 32
+
+#include "md5.h"
+
 using namespace std;
 
 __constant__ char devHashes[CSTMEMSIZE];
 
-// nombre de threads par bloc
-const int threadsPerBlock = 256;
-const int blocksPerGrid = 4;
 
 
 __global__ void bfDummy(char * devResults, char * status, int nHashes)
 {
 
-	//Initialize guess string
-	char guess[MAXPASSSIZE];
-	//Initialize guess hash
-	char guessHash[4];
 	//Compute thread ID
 	int tid = threadIdx.x + blockIdx.x * blockDim.x;
+	//Initialize pointer to guess
+    __shared__ char sharedGuess[threadsPerBlock * MAXPASSSIZE];
+    char * guess = sharedGuess + threadIdx.x*MAXPASSSIZE;
+	//Initialize to guess hash (faster than next 2 lines)
+    /*__shared__ char sharedGuessHash[threadsPerBlock * 5];*/
+    /*char * guessHash = sharedGuessHash + threadIdx.x*5;*/
+    char guessHash[4];
 	//Fill in guess string according to previous launches
 	gpuStrncpy(guess, status + tid*MAXPASSSIZE, MAXPASSSIZE);
 
@@ -59,12 +63,23 @@ __global__ void bfDummy(char * devResults, char * status, int nHashes)
 __global__ void bfMD5(char * devResults, char * status, int nHashes)
 {
 
-	//Initialize guess string
-	char guess[MAXPASSSIZE];
-	//Initialize guess hash
-	char guessHash[16];
 	//Compute thread ID
 	int tid = threadIdx.x + blockIdx.x * blockDim.x;
+	//Initialize pointer to guess
+	__shared__ char sharedGuess[threadsPerBlock * MAXPASSSIZE];
+    char * guess = sharedGuess + threadIdx.x*MAXPASSSIZE;
+	//Initialize pointer to guess hash (faster than next 2 lines)
+	/*__shared__ char sharedGuessHash[threadsPerBlock * 17];*/
+    /*char * guessHash = sharedGuessHash + threadIdx.x*17;*/
+    char guessHash[17];
+    //Initialize pointer to normalized guess (faster than next 2 lines)
+    /*__shared__ char sharedNormalizedGuess[threadsPerBlock * 65];*/
+    /*char * normalizedGuess = sharedNormalizedGuess + threadIdx.x*65;*/
+    char normalizedGuess[65];
+    //Set all values to zero
+    for (int i = 0; i < 65; ++i) {
+        normalizedGuess[i] = 0;
+    }
 	//Fill in guess string according to previous launches
 	gpuStrncpy(guess, status + tid*MAXPASSSIZE, MAXPASSSIZE);
 
@@ -72,7 +87,7 @@ __global__ void bfMD5(char * devResults, char * status, int nHashes)
 	for (int iter = 0; iter < ITPERSTEPS; ++iter)
 	{
 		//Compute current guess hash
-		md5(guessHash, guess, devStrlen(guess));
+		md5(guessHash, guess, normalizedGuess, devStrlen(guess));
 		//For each password hash to crack
 		for (int i = 0; i < nHashes; ++i)
 		{
@@ -91,8 +106,11 @@ __global__ void bfMD5(char * devResults, char * status, int nHashes)
 	gpuStrncpy(status + tid*MAXPASSSIZE, guess, MAXPASSSIZE);
 }
 
-char * launchKernels(char * gpuHashes, int nHashes, const char * format, const int hashSize)
+char * launchKernels(char * gpuHashes, int nHashes, const char * format, const
+        int hashSize, char test)
 {
+    //Initialize cuda events (for measuring performances)
+    cudaEvent_t start, stop;
 	//Allocate memory on CPU for storing results
 	char * results = NULL;
 	results = (char *)calloc(MAXPASSSIZE*nHashes, sizeof(char));
@@ -119,12 +137,22 @@ char * launchKernels(char * gpuHashes, int nHashes, const char * format, const i
                 sizeof(char)) );
 	//Initialize guesses on GPU
 	initGuesses(devStatus, nThreads);
-    //Initalize MD5 hasher
-	md5_init();
+
+    //If we want to measure performance
+    if (test == 1) {
+        HANDLE_ERROR( cudaEventCreate(&start) );
+        HANDLE_ERROR( cudaEventCreate(&stop) );
+        HANDLE_ERROR( cudaEventRecord(start, 0) );
+    }
 
     //While all passwords are not founded
 	while (!founded(results, nHashes))
 	{
+        //Record start event
+        if (test == 1) {
+            HANDLE_ERROR( cudaEventRecord(start, 0) );
+        }
+
 		// launch kernels according to format
 		if (strcmp(format, "dummy") == 0)
 		{
@@ -136,15 +164,35 @@ char * launchKernels(char * gpuHashes, int nHashes, const char * format, const i
 			bfMD5<<<threadsPerBlock,blocksPerGrid>>>(devResults, devStatus, nHashes);
 		}
 
+        //Display performances measures
+        if (test == 1) {
+            HANDLE_ERROR( cudaEventRecord(stop, 0) );
+            HANDLE_ERROR( cudaEventSynchronize(stop) );
+
+            //Display number of hashes per second
+            float elapsedTime(0);
+            float testedHashes = ITPERSTEPS*threadsPerBlock*blocksPerGrid;
+            HANDLE_ERROR( cudaEventElapsedTime(&elapsedTime, start, stop) );
+            
+            cout << "Performances: " << testedHashes / elapsedTime << " hash/ms";
+            cout << endl;
+        }
+
         //Copy results from GPU back to CPU
 		HANDLE_ERROR( cudaMemcpy(results, devResults,
                     MAXPASSSIZE*nHashes*sizeof(char), cudaMemcpyDeviceToHost) );
+
 
 	}
 
     //Environmental concern...
 	HANDLE_ERROR( cudaFree(devResults) );
 	HANDLE_ERROR( cudaFree(devStatus) );
+    if (test == 1) {
+        HANDLE_ERROR( cudaEventDestroy(start) );
+        HANDLE_ERROR( cudaEventDestroy(stop) );
+    }
+
 
 	return results;
 }

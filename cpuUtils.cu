@@ -8,7 +8,7 @@
 
 #include "cpuUtils.h"
 
-#define MAXPASSSIZE 50
+#define MAXPASSSIZE 9
 
 using namespace std;
 
