@@ -12,7 +12,7 @@
 
 // nombre de threads par bloc
 #define threadsPerBlock 256
-#define blocksPerGrid 32
+#define blocksPerGrid 64
 
 #include "md5.h"
 
@@ -28,11 +28,11 @@ __global__ void bfDummy(char * devResults, char * status, int nHashes)
 	//Compute thread ID
 	int tid = threadIdx.x + blockIdx.x * blockDim.x;
 	//Initialize pointer to guess
+    //No bank conflicts because MAXPASSSIZE = 9, so using shared memory
+    //really is fast ;)
     __shared__ char sharedGuess[threadsPerBlock * MAXPASSSIZE];
     char * guess = sharedGuess + threadIdx.x*MAXPASSSIZE;
-	//Initialize to guess hash (faster than next 2 lines)
-    /*__shared__ char sharedGuessHash[threadsPerBlock * 5];*/
-    /*char * guessHash = sharedGuessHash + threadIdx.x*5;*/
+	//Initialize to guess hash 
     char guessHash[4];
 	//Fill in guess string according to previous launches
 	gpuStrncpy(guess, status + tid*MAXPASSSIZE, MAXPASSSIZE);
@@ -66,15 +66,15 @@ __global__ void bfMD5(char * devResults, char * status, int nHashes)
 	//Compute thread ID
 	int tid = threadIdx.x + blockIdx.x * blockDim.x;
 	//Initialize pointer to guess
+    //No bank conflicts because MAXPASSSIZE = 9, so using shared memory
+    //really is fast ;)
 	__shared__ char sharedGuess[threadsPerBlock * MAXPASSSIZE];
     char * guess = sharedGuess + threadIdx.x*MAXPASSSIZE;
-	//Initialize pointer to guess hash (faster than next 2 lines)
-	/*__shared__ char sharedGuessHash[threadsPerBlock * 17];*/
-    /*char * guessHash = sharedGuessHash + threadIdx.x*17;*/
+	//Initialize guess hash
+    //As far as compute 2.0 is concerned, there is also local cache, so let's
+    //use it too
     char guessHash[17];
-    //Initialize pointer to normalized guess (faster than next 2 lines)
-    /*__shared__ char sharedNormalizedGuess[threadsPerBlock * 65];*/
-    /*char * normalizedGuess = sharedNormalizedGuess + threadIdx.x*65;*/
+    //Initialize normalized guess
     char normalizedGuess[65];
     //Set all values to zero
     for (int i = 0; i < 65; ++i) {
